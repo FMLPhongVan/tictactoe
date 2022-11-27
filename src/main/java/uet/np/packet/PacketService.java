@@ -7,7 +7,7 @@ public class PacketService {
         byte[] data = new byte[4 + KEY_MATCH.length()];
         System.arraycopy(Utils.convertIntToByteArray(UID), 0, data, 0, 4);
         System.arraycopy(KEY_MATCH.getBytes(), 0, data, 4, KEY_MATCH.length());
-        return new Packet(PacketType.PKT_ID, data.length, data);
+        return new Packet(PacketType.PKT_HI, data.length, data);
     }
 
     public static Packet initSendPacket(final int id, final int move) {

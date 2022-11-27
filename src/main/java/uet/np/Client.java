@@ -25,7 +25,7 @@ public class Client {
             // Send packet PKT_HI
             Packet hiPacket = PacketService.initHiPacket(KEY_MATCH, UID);
             dout.write(PacketService.turnPacketToBytes(hiPacket), 0, hiPacket.getSize());
-            //dout.write(Utils.testWebServer());
+            System.out.println("Send packet Hi");
             int id = 0, l;
             boolean goFirst = true;
             boolean readyToPlay = false;
