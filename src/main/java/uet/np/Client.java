@@ -40,10 +40,6 @@ public class Client {
                     break;
                 }
 
-                if (readyToPlay) {
-                    ai.printBoard();
-                }
-
                 Packet recvPacket = PacketService.turnBytesToPacket(buffer);
                 switch (recvPacket.type) {
                     case PKT_HI:
@@ -89,6 +85,8 @@ public class Client {
                             goFirst = false;
                         }
 
+                        ai.printBoard();
+
                         break;
                     case PKT_RECEIVE:
                         System.out.println("Received PKT_RECEIVE");
@@ -100,14 +98,33 @@ public class Client {
                         System.out.format("My move: %d %d\n", move / ai.n, move % ai.n);
                         ai.board[move / ai.n][move % ai.n] = 1;
 
+                        if (readyToPlay) {
+                            ai.printBoard();
+                        }
+
                         Packet sendPacket = PacketService.initSendPacket(id, move);
                         dout.write(PacketService.turnPacketToBytes(sendPacket), 0, sendPacket.getSize());
                         break;
                     case PKT_ERROR:
+                        System.out.println("Received PKT_ERROR");
+                        do {
+                            move = (int) (Math.random() * (ai.n * ai.m));
+                        } while (ai.board[move / ai.n][move % ai.n] != 0);
+
+                        sendPacket = PacketService.initSendPacket(id, move);
+                        dout.write(PacketService.turnPacketToBytes(sendPacket), 0, sendPacket.getSize());
                         break;
                     case PKT_END:
+                        System.out.println("Received PKT_END");
                         running = false;
-                        System.out.println("Received PKT_BYE");
+                        int winnerId = Utils.convertByteArrayToInt(recvPacket.data, 0);
+                        if (winnerId == id) {
+                            System.out.println("You win");
+                        } else if (winnerId == 0) {
+                            System.out.println("Draw");
+                        } else {
+                            System.out.println("You lose");
+                        }
                         break;
                     default:
                         System.out.println("Unknown packet type");

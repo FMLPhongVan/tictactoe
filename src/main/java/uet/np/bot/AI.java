@@ -1,5 +1,10 @@
 package uet.np.bot;
 
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Queue;
+
 public class AI {
     public int m;
     public int n;
@@ -25,25 +30,43 @@ public class AI {
         int y = 0;
         int score = 0, bestScore = Integer.MIN_VALUE;
         int depth = 4;
-        for (int i = 0; i < m; i++) {
-            for (int j = 0; j < n; j++) {
-                if (board[i][j] == 0) {
-                    board[i][j] = 1;
-                    score = minimax(depth, Integer.MIN_VALUE, Integer.MAX_VALUE, false);
-                    System.out.println(i + " " + j + " " + score);
-                    board[i][j] = 0;
-                    if (score > bestScore) {
-                        bestScore = score;
-                        x = i;
-                        y = j;
+
+        int atempt = 0;
+        List<MinimaxThread> threads = new ArrayList<>();
+        while (atempt < m * n) {
+            if (board[atempt / n][atempt % n] != 0) {
+                atempt++;
+                continue;
+            }
+
+            if (!threads.isEmpty()) {
+                for (int i = 0; i < threads.size(); i++) {
+                    if (threads.get(i).getState() == Thread.State.TERMINATED) {
+                        score = threads.get(i).minimaxRunnable.BestScore;
+                        if (score > bestScore) {
+                            bestScore = score;
+                            x = threads.get(i).minimaxRunnable.atempt / n;
+                            y = threads.get(i).minimaxRunnable.atempt % n;
+                        }
+                        threads.remove(threads.get(i));
                     }
                 }
             }
+
+            if (threads.size() < 5) {
+                board[atempt / n][atempt % n] = 1;
+                MinimaxRunnable t = new MinimaxRunnable(m, n, board, depth, lengthToWin, atempt);
+                MinimaxThread thread = new MinimaxThread(t);
+                thread.start();
+                threads.add(thread);
+                board[atempt / n][atempt % n] = 0;
+                atempt++;
+            }
         }
 
-        if (score == Integer.MIN_VALUE) {
+        if (bestScore == Integer.MIN_VALUE) {
             int move = (int) (Math.random() * (n * m));
-            while (board[move / n][move % n] != 0 && board[move / n][move % n] != -1) {
+            while (!(board[move / n][move % n] == 0)) {
                 move = (int) (Math.random() * (n * m));
             }
             return move;
@@ -61,93 +84,18 @@ public class AI {
         }
     }
 
-    private int minimax(int depth, int alpha, int beta, boolean isMaximizing) {
-        if (depth == 0) {
-            return evaluate();
-        }
-
-        if (isMaximizing) {
-            int bestValue = Integer.MIN_VALUE;
-            for (int i = 0; i < m; i++) {
-                for (int j = 0; j < n; j++) {
-                    if (board[i][j] == 0) {
-                        board[i][j] = 1;
-                        int value = minimax(depth - 1, alpha, beta, false);
-                        board[i][j] = 0;
-                        bestValue = Math.max(bestValue, value);
-                        alpha = Math.max(alpha, value);
-                        if (beta <= alpha) {
-                            break;
-                        }
-                    }
-                }
-            }
-            return bestValue;
-        } else {
-            int bestValue = Integer.MAX_VALUE;
-            for (int i = 0; i < m; i++) {
-                for (int j = 0; j < n; j++) {
-                    if (board[i][j] == 0) {
-                        board[i][j] = 2;
-                        int value = minimax(depth - 1, alpha, beta, true);
-                        board[i][j] = 0;
-                        bestValue = Math.min(bestValue, value);
-                        beta = Math.min(beta, value);
-                        if (beta <= alpha) {
-                            break;
-                        }
-                    }
-                }
-            }
-            return bestValue;
-        }
-    }
-
-    private int evaluate() {
-        int score = 0;
-        for (int i = 0; i < m; ++i) {
-            for (int j = 0; j < n; ++j) {
-                if (board[i][j] == 1)  {
-                    for (int k = 0; k < 8; ++k) {
-                        int x = i + dx[k];
-                        int y = j + dy[k];
-                        int count = 1;
-                        while (x >= 0 && x < m && y >= 0 && y < n && board[x][y] == 1) {
-                            count++;
-                            x += dx[k];
-                            y += dy[k];
-                        }
-                        if (count >= lengthToWin) {
-                            return Integer.MAX_VALUE;
-                        }
-                        score += count * count;
-                    }
-                } else if (board[i][j] == 2) {
-                    for (int k = 0; k < 8; ++k) {
-                        int x = i + dx[k];
-                        int y = j + dy[k];
-                        int count = 1;
-                        while (x >= 0 && x < m && y >= 0 && y < n && board[x][y] == 2) {
-                            count++;
-                            x += dx[k];
-                            y += dy[k];
-                        }
-                        if (count >= lengthToWin) {
-                            return Integer.MIN_VALUE;
-                        }
-                        score -= count * count;
-                    }
-                }
-            }
-        }
-
-        return score;
-    }
-
     public void printBoard() {
         for (int i = 0; i < m; i++) {
             for (int j = 0; j < n; j++) {
-                System.out.print(board[i][j] + " ");
+                if (board[i][j] == -1) {
+                    System.out.print("  ");
+                } else if (board[i][j] == 1) {
+                    System.out.print("1 ");
+                } else if (board[i][j] == 2) {
+                    System.out.print("2 ");
+                } else {
+                    System.out.print("0 ");
+                }
             }
             System.out.println();
         }
