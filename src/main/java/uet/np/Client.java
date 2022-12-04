@@ -11,12 +11,20 @@ import java.net.Socket;
 public class Client {
     //public static String address = "0.tcp.ap.ngrok.io";
     //public static int port = 16433;
-    public static String address = "127.0.0.1";
-    public static int port = 9001;
-    public static final String KEY_MATCH = "asasdas";
-    public static final int UID = 1;
+    public static String address = "s.vominhduc.me";
+    public static int port = 9000;
+    public static String KEY_MATCH = "123";
+    public static int UID = 44403;
 
     public static void main(String[] args) {
+        if (args.length > 0) {
+            port = Integer.parseInt(args[0]);
+            if (args.length > 1) UID = Integer.parseInt(args[1]);
+            if (args.length > 2) KEY_MATCH = args[2];
+        }
+        System.out.println("Port: " + port);
+        System.out.println("UID: " + UID);
+        System.out.println("KEY_MATCH: " + KEY_MATCH);
         try (Socket socket = new Socket(address, port)) {
             System.out.println("Connected to server");
             DataInputStream din = new DataInputStream(socket.getInputStream());
