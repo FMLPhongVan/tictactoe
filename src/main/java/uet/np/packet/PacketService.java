@@ -25,11 +25,11 @@ public class PacketService {
         return bytes;
     }
 
-    public static Packet turnBytesToPacket(byte[] buffer) {
-        int type = Utils.convertByteArrayToInt(buffer, 0, true);
-        int len = Utils.convertByteArrayToInt(buffer, 4, true);
+    public static Packet turnBytesToPacket(byte[] buffer, int offset) {
+        int type = Utils.convertByteArrayToInt(buffer, offset, true);
+        int len = Utils.convertByteArrayToInt(buffer, offset + 4, true);
         byte[] data = new byte[len];
-        System.arraycopy(buffer, 8, data, 0, len);
+        System.arraycopy(buffer, offset + 8, data, 0, len);
         if (type > PacketType.values().length - 1 || type < 0) {
             type = PacketType.UNKNOWN.ordinal();
         }

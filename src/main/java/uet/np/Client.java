@@ -48,96 +48,106 @@ public class Client {
                     break;
                 }
 
-                Packet recvPacket = PacketService.turnBytesToPacket(buffer);
-                switch (recvPacket.type) {
-                    case PKT_HI:
-                        System.out.println("Received PKT_HI");
-                        break;
-                    case PKT_ID:
-                        id = Utils.convertByteArrayToInt(recvPacket.data, 0);
-                        goFirst = Utils.convertByteArrayToInt(recvPacket.data, 4) == 1;
-                        System.out.println("Received PKT_ID");
-                        System.out.println("ID: " + id);
-                        System.out.println("You go first ?: " + goFirst);
-                        break;
-                    case PKT_BOARD:
-                        ai.n = Utils.convertByteArrayToInt(recvPacket.data, 0);
-                        ai.m = Utils.convertByteArrayToInt(recvPacket.data, 4);
-                        ai.initBoard();
-                        l = Utils.convertByteArrayToInt(recvPacket.data, 8);
-                        ai.lengthToWin = Utils.convertByteArrayToInt(recvPacket.data, 12);
-                        System.out.println("Received PKT_BOARD");
-                        System.out.println("n: " + ai.n);
-                        System.out.println("m: " + ai.m);
-                        System.out.println("lengthToWin: " + ai.lengthToWin);
-                        System.out.println("Blocked: " + l);
-                        for (int i = 0; i < l; i++) {
-                            int blocked = Utils.convertByteArrayToInt(recvPacket.data, 16 + i * 4);
-                            ai.board[blocked / ai.n][blocked % ai.n] = -1;
-                            System.out.format("Blocked %d: %d %d\n", blocked, blocked / ai.n, blocked % ai.n);
-                        }
+                int currentPos = 0;
+                while (true) {
+                    currentPos += 4;
+                    int len = Utils.convertByteArrayToInt(buffer, currentPos, true);
 
-                        readyToPlay = true;
-
-                        if (goFirst) {
-                            int move = (int) (Math.random() * (ai.n * ai.m));
-                            while (ai.board[move / ai.n][move % ai.n] != 0) {
-                                move = (int) (Math.random() * (ai.n * ai.m));
+                    Packet recvPacket = PacketService.turnBytesToPacket(buffer, currentPos - 4);
+                    switch (recvPacket.type) {
+                        case PKT_HI:
+                            System.out.println("Received PKT_HI");
+                            break;
+                        case PKT_ID:
+                            id = Utils.convertByteArrayToInt(recvPacket.data, 0);
+                            goFirst = Utils.convertByteArrayToInt(recvPacket.data, 4) == 1;
+                            System.out.println("Received PKT_ID");
+                            System.out.println("ID: " + id);
+                            System.out.println("You go first ?: " + goFirst);
+                            break;
+                        case PKT_BOARD:
+                            ai.n = Utils.convertByteArrayToInt(recvPacket.data, 0);
+                            ai.m = Utils.convertByteArrayToInt(recvPacket.data, 4);
+                            ai.initBoard();
+                            l = Utils.convertByteArrayToInt(recvPacket.data, 8);
+                            ai.lengthToWin = Utils.convertByteArrayToInt(recvPacket.data, 12);
+                            System.out.println("Received PKT_BOARD");
+                            System.out.println("n: " + ai.n);
+                            System.out.println("m: " + ai.m);
+                            System.out.println("lengthToWin: " + ai.lengthToWin);
+                            System.out.println("Blocked: " + l);
+                            for (int i = 0; i < l; i++) {
+                                int blocked = Utils.convertByteArrayToInt(recvPacket.data, 16 + i * 4);
+                                ai.board[blocked / ai.n][blocked % ai.n] = -1;
+                                System.out.format("Blocked %d: %d %d\n", blocked, blocked / ai.n, blocked % ai.n);
                             }
 
-                            ai.board[move / ai.n][move % ai.n] = 1;
+                            readyToPlay = true;
+
+                            if (goFirst) {
+                                int move = (int) (Math.random() * (ai.n * ai.m));
+                                while (ai.board[move / ai.n][move % ai.n] != 0) {
+                                    move = (int) (Math.random() * (ai.n * ai.m));
+                                }
+
+                                ai.board[move / ai.n][move % ai.n] = 1;
+                                System.out.format("My move: %d %d\n", move / ai.n, move % ai.n);
+
+                                Packet sendPacket = PacketService.initSendPacket(id, move);
+                                dout.write(PacketService.turnPacketToBytes(sendPacket), 0, sendPacket.getSize());
+                                goFirst = false;
+                            }
+
+                            ai.printBoard();
+
+                            break;
+                        case PKT_RECEIVE:
+                            System.out.println("Received PKT_RECEIVE");
+                            int move = Utils.convertByteArrayToInt(recvPacket.data, 0);
+                            ai.board[move / ai.n][move % ai.n] = 2;
+
+                            System.out.format("Opponent move: %d %d\n", move / ai.n, move % ai.n);
+                            move = ai.nextMove();
                             System.out.format("My move: %d %d\n", move / ai.n, move % ai.n);
+                            ai.board[move / ai.n][move % ai.n] = 1;
+
+                            if (readyToPlay) {
+                                ai.printBoard();
+                            }
 
                             Packet sendPacket = PacketService.initSendPacket(id, move);
                             dout.write(PacketService.turnPacketToBytes(sendPacket), 0, sendPacket.getSize());
-                            goFirst = false;
-                        }
+                            break;
+                        case PKT_ERROR:
+                            System.out.println("Received PKT_ERROR");
+                            do {
+                                move = (int) (Math.random() * (ai.n * ai.m));
+                            } while (ai.board[move / ai.n][move % ai.n] != 0);
 
-                        ai.printBoard();
+                            sendPacket = PacketService.initSendPacket(id, move);
+                            dout.write(PacketService.turnPacketToBytes(sendPacket), 0, sendPacket.getSize());
+                            break;
+                        case PKT_END:
+                            System.out.println("Received PKT_END");
+                            running = false;
+                            int winnerId = Utils.convertByteArrayToInt(recvPacket.data, 0);
+                            if (winnerId == id) {
+                                System.out.println("You win");
+                            } else if (winnerId == 0) {
+                                System.out.println("Draw");
+                            } else {
+                                System.out.println("You lose");
+                            }
+                            break;
+                        default:
+                            System.out.println("Unknown packet type");
+                            running = false;
+                            break;
+                    }
 
+                    if (recvBytes <= currentPos + len + 4) {
                         break;
-                    case PKT_RECEIVE:
-                        System.out.println("Received PKT_RECEIVE");
-                        int move = Utils.convertByteArrayToInt(recvPacket.data, 0);
-                        ai.board[move / ai.n][move % ai.n] = 2;
-
-                        System.out.format("Opponent move: %d %d\n", move / ai.n, move % ai.n);
-                        move = ai.nextMove();
-                        System.out.format("My move: %d %d\n", move / ai.n, move % ai.n);
-                        ai.board[move / ai.n][move % ai.n] = 1;
-
-                        if (readyToPlay) {
-                            ai.printBoard();
-                        }
-
-                        Packet sendPacket = PacketService.initSendPacket(id, move);
-                        dout.write(PacketService.turnPacketToBytes(sendPacket), 0, sendPacket.getSize());
-                        break;
-                    case PKT_ERROR:
-                        System.out.println("Received PKT_ERROR");
-                        do {
-                            move = (int) (Math.random() * (ai.n * ai.m));
-                        } while (ai.board[move / ai.n][move % ai.n] != 0);
-
-                        sendPacket = PacketService.initSendPacket(id, move);
-                        dout.write(PacketService.turnPacketToBytes(sendPacket), 0, sendPacket.getSize());
-                        break;
-                    case PKT_END:
-                        System.out.println("Received PKT_END");
-                        running = false;
-                        int winnerId = Utils.convertByteArrayToInt(recvPacket.data, 0);
-                        if (winnerId == id) {
-                            System.out.println("You win");
-                        } else if (winnerId == 0) {
-                            System.out.println("Draw");
-                        } else {
-                            System.out.println("You lose");
-                        }
-                        break;
-                    default:
-                        System.out.println("Unknown packet type");
-                        running = false;
-                        break;
+                    }
                 }
             }
 
